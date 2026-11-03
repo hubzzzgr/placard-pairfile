@@ -36,6 +36,10 @@ jobs:
       - name: Test pairing file import
         run: python3 scripts/test-pairing-import.py
 
+      - name: Test UIKit pairing picker in simulator
+        timeout-minutes: 5
+        run: python3 scripts/test-pairing-picker.py
+
       - name: Read app version
         run: |
           VERSION=$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' placard.xcodeproj/project.pbxproj | head -n 1)

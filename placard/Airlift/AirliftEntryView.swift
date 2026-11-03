@@ -1,7 +1,6 @@
 import SwiftUI
 import Network
 import Combine
-import UniformTypeIdentifiers
 
 @MainActor
 final class AirliftWiFiMonitor: ObservableObject {
@@ -41,15 +40,24 @@ struct AirliftEntryView: View {
     @State private var pairingError: String?
     @State private var connectionError: String?
     @State private var importingPairingFile = false
+    @State private var importError: String?
+    @State private var showingImportError = false
 
     var body: some View {
         setupView
-            .fileImporter(
-                isPresented: $importingPairingFile,
-                allowedContentTypes: [.propertyList],
-                allowsMultipleSelection: false,
-                onCompletion: importPairingFile
-            )
+            .sheet(isPresented: $importingPairingFile, onDismiss: {
+                showingImportError = importError != nil
+            }) {
+                PairingFilePicker(
+                    onPick: importPairingFile,
+                    onCancel: { importingPairingFile = false }
+                )
+            }
+            .alert("Unable to Import Pairing File", isPresented: $showingImportError) {
+                Button("OK", role: .cancel) { importError = nil }
+            } message: {
+                Text(importError ?? "")
+            }
     }
 
     @ViewBuilder
@@ -78,6 +86,7 @@ struct AirliftEntryView: View {
                     error: pairingError, onStart: startPairing,
                     onImport: {
                         pairingError = nil
+                        importError = nil
                         importingPairingFile = true
                     }
                 )
@@ -85,15 +94,16 @@ struct AirliftEntryView: View {
         }
     }
 
-    private func importPairingFile(_ result: Result<[URL], Error>) {
+    private func importPairingFile(_ url: URL) {
+        importingPairingFile = false
         do {
-            guard let url = try result.get().first else { return }
             try pairing.importPairingFile(from: url)
             pairingError = nil
             connectionError = nil
             paired = true
         } catch {
             pairingError = error.localizedDescription
+            importError = error.localizedDescription
         }
     }
 
