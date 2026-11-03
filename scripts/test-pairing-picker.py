@@ -5,6 +5,7 @@ Uses synthetic credentials. Checks the copy-mode contract and callback-to-storag
 handoff; tapping a file from a third-party Files provider still needs device QA.
 """
 import json
+import os
 import pathlib
 import plistlib
 import subprocess
@@ -25,7 +26,8 @@ device = next(d for runtime, items in devices.items() if "iOS-27" in runtime
 udid = device["udid"]
 if device["state"] != "Booted":
     run("xcrun", "simctl", "boot", udid)
-run("xcrun", "simctl", "bootstatus", udid, "-b")
+print("Waiting for simulator boot", flush=True)
+subprocess.run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=True, timeout=240)
 
 with tempfile.TemporaryDirectory(prefix="placard-picker-test-") as temporary:
     temporary = pathlib.Path(temporary)
@@ -37,6 +39,8 @@ with tempfile.TemporaryDirectory(prefix="placard-picker-test-") as temporary:
         "CFBundleVersion": "1", "CFBundleShortVersionString": "1.0",
         "MinimumOSVersion": "27.0", "LSRequiresIPhoneOS": True,
         "UIDeviceFamily": [1], "UILaunchScreen": {},
+        "CFBundleSupportedPlatforms": ["iPhoneSimulator"],
+        "UIApplicationSceneManifest": {"UIApplicationSupportsMultipleScenes": False},
     }))
     record = {"HostID": "test-host", "SystemBUID": "test-system"}
     record.update({key: b"synthetic-test-data" for key in [
@@ -45,19 +49,16 @@ with tempfile.TemporaryDirectory(prefix="placard-picker-test-") as temporary:
     (app / "fixture.plist").write_bytes(plistlib.dumps(record))
     main = temporary / "main.swift"
     main.write_text(r'''
+import SwiftUI
 import UIKit
 
+@main
 @MainActor
-final class PickerTestApp: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = UIViewController()
-        window.makeKeyAndVisible()
-        self.window = window
-        DispatchQueue.main.async { self.testPicker() }
-        return true
+struct PickerTestApp: App {
+    var body: some Scene {
+        WindowGroup {
+            Text("Testing pairing picker").task { testPicker() }
+        }
     }
 
     func testPicker() {
@@ -109,28 +110,42 @@ final class PickerTestApp: UIResponder, UIApplicationDelegate {
         }
     }
 }
-UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(PickerTestApp.self))
 ''', encoding="utf-8")
     sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path")
+    print("Compiling simulator harness with SDK: " + sdk, flush=True)
     subprocess.run([
-        "xcrun", "swiftc", "-sdk", sdk, "-target", "arm64-apple-ios27.0-simulator",
+        "xcrun", "--sdk", "iphonesimulator", "swiftc", "-sdk", sdk,
+        "-target", "arm64-apple-ios27.0-simulator", "-parse-as-library",
         "-swift-version", "5", str(ROOT / "placard/Airlift/PairingFilePicker.swift"),
         str(ROOT / "placard/Airlift/PairingFileStore.swift"), str(main),
         "-o", str(app / "PickerTests"),
-    ], check=True)
+    ], check=True, env={**os.environ, "SDKROOT": sdk})
     run("codesign", "--force", "--sign", "-", str(app))
     run("xcrun", "simctl", "install", udid, str(app))
     container = pathlib.Path(run("xcrun", "simctl", "get_app_container", udid, BUNDLE_ID, "data"))
     result = container / "Documents/result.txt"
     result.unlink(missing_ok=True)
-    run("xcrun", "simctl", "launch", "--terminate-running-process", udid, BUNDLE_ID)
-    for _ in range(60):
-        if result.exists():
-            message = result.read_text()
-            print(message)
-            if not message.startswith("PASS:"):
-                raise RuntimeError(message)
-            break
-        time.sleep(1)
-    else:
-        raise RuntimeError("Picker simulator test did not complete")
+    print("Launching simulator harness", flush=True)
+    with (temporary / "console.log").open("w+") as console:
+        process = subprocess.Popen([
+            "xcrun", "simctl", "launch", "--console", "--terminate-running-process", udid, BUNDLE_ID,
+        ], stdout=console, stderr=subprocess.STDOUT)
+        try:
+            for _ in range(90):
+                if result.exists():
+                    message = result.read_text()
+                    print(message, flush=True)
+                    if not message.startswith("PASS:"):
+                        raise RuntimeError(message)
+                    break
+                time.sleep(1)
+            else:
+                console.seek(0)
+                print(console.read(), flush=True)
+                raise RuntimeError("Picker simulator test did not complete")
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()

@@ -37,7 +37,7 @@ jobs:
         run: python3 scripts/test-pairing-import.py
 
       - name: Test UIKit pairing picker in simulator
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: python3 scripts/test-pairing-picker.py
 
       - name: Read app version
