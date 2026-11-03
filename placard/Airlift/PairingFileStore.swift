@@ -5,7 +5,7 @@ enum PairingFileStore {
         case invalidPairingFile
 
         var errorDescription: String? {
-            "This is not a valid pairing file. Choose a .plist, .mobiledevicepairing, or .mobilepair file created for this iPhone."
+            "This is not a valid pairing file. Choose a .plist pairing file created for this iPhone."
         }
     }
 

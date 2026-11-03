@@ -46,8 +46,7 @@ struct AirliftEntryView: View {
         setupView
             .fileImporter(
                 isPresented: $importingPairingFile,
-                // Pairing files often have unregistered extensions in Files.
-                allowedContentTypes: [.item],
+                allowedContentTypes: [.propertyList],
                 allowsMultipleSelection: false,
                 onCompletion: importPairingFile
             )

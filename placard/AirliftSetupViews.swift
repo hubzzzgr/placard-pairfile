@@ -78,7 +78,7 @@ struct AirliftPairingView: View {
             .buttonStyle(.bordered)
             .controlSize(.large)
             .disabled(running)
-            Text("Choose a .plist, .mobiledevicepairing, or .mobilepair file created for this iPhone.")
+            Text("Choose an existing .plist pairing file created for this iPhone.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
