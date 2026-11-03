@@ -40,6 +40,7 @@ struct AirliftPairingView: View {
     let pin: String?
     let error: String?
     let onStart: () -> Void
+    let onImport: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -70,6 +71,16 @@ struct AirliftPairingView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(running)
+            Button(action: onImport) {
+                Label("Import existing pairing file", systemImage: "square.and.arrow.down")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(running)
+            Text("Choose a .plist, .mobiledevicepairing, or .mobilepair file created for this iPhone.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .padding(24)
     }
@@ -133,7 +144,7 @@ struct AirliftVPNView: View {
 }
 
 #Preview("Pairing") {
-    AirliftPairingView(running: false, pin: nil, error: nil, onStart: {})
+    AirliftPairingView(running: false, pin: nil, error: nil, onStart: {}, onImport: {})
 }
 
 #Preview("LocalDevVPN") {

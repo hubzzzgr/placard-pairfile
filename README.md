@@ -15,6 +15,7 @@ Placard is an iOS app for browsing, creating, installing, and managing custom Po
 - View and remove installed custom and featured wallpapers
 - Refresh SpringBoard after wallpaper changes with NeoSpring
 - English and Simplified Chinese localization
+- Import an existing `.plist`, `.mobiledevicepairing`, or `.mobilepair` record from the **Pair this iPhone** setup screen
 
 ## Preview
 
@@ -38,6 +39,8 @@ The Simulator can be used to browse the catalog and develop the interface, but i
 4. Build and run the app on your device.
 
 Swift Package Manager resolves [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) automatically when the project is opened.
+
+The **Release unsigned IPA** GitHub Actions workflow builds the app and publishes a standalone `.ipa` in both the run's artifacts and GitHub Releases. Download the `.ipa` asset directly; it requires signing before installation.
 
 ## How it works
 

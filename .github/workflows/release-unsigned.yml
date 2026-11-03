@@ -33,6 +33,9 @@ jobs:
       - name: Verify vendored Airlift
         run: bash scripts/verify-airlift.sh
 
+      - name: Test pairing file import
+        run: python3 scripts/test-pairing-import.py
+
       - name: Read app version
         run: |
           VERSION=$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' placard.xcodeproj/project.pbxproj | head -n 1)
@@ -66,12 +69,14 @@ jobs:
             "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
           zip -qry "placard-v${VERSION}-unsigned.ipa" Payload
+          unzip -tq "placard-v${VERSION}-unsigned.ipa"
 
       - name: Upload unsigned IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: placard-v${{ env.VERSION }}-unsigned
           path: ${{ runner.temp }}/placard-v${{ env.VERSION }}-unsigned.ipa
+          archive: false
+          if-no-files-found: error
 
       - name: Publish GitHub release
         if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release]')

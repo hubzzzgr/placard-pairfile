@@ -1,6 +1,7 @@
 import SwiftUI
 import Network
 import Combine
+import UniformTypeIdentifiers
 
 @MainActor
 final class AirliftWiFiMonitor: ObservableObject {
@@ -39,8 +40,21 @@ struct AirliftEntryView: View {
     @State private var checking = false
     @State private var pairingError: String?
     @State private var connectionError: String?
+    @State private var importingPairingFile = false
 
     var body: some View {
+        setupView
+            .fileImporter(
+                isPresented: $importingPairingFile,
+                // Pairing files often have unregistered extensions in Files.
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: false,
+                onCompletion: importPairingFile
+            )
+    }
+
+    @ViewBuilder
+    private var setupView: some View {
         switch wifiMonitor.status {
         case .checking:
             AirliftWiFiCheckingView()
@@ -62,9 +76,25 @@ struct AirliftEntryView: View {
             } else {
                 AirliftPairingView(
                     running: pairing.running, pin: pairing.pairingPIN,
-                    error: pairingError, onStart: startPairing
+                    error: pairingError, onStart: startPairing,
+                    onImport: {
+                        pairingError = nil
+                        importingPairingFile = true
+                    }
                 )
             }
+        }
+    }
+
+    private func importPairingFile(_ result: Result<[URL], Error>) {
+        do {
+            guard let url = try result.get().first else { return }
+            try pairing.importPairingFile(from: url)
+            pairingError = nil
+            connectionError = nil
+            paired = true
+        } catch {
+            pairingError = error.localizedDescription
         }
     }
 

@@ -37,6 +37,18 @@ final class PairingController: ObservableObject {
 
     // MARK: - Public API
 
+    func importPairingFile(from url: URL) throws {
+        guard !running else { throw PairingError.busy }
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+        }
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let path = try PairingFileStore.save(Data(contentsOf: url), in: directory)
+        Self.syncCanonicalPairingFile(from: path.path)
+        pairingStatus = "Pairing file imported"
+    }
+
     enum PairingError: LocalizedError {
         case busy
         case localNetworkDenied
