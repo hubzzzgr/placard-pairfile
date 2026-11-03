@@ -25,39 +25,34 @@ func assertContents(_ url: URL, equalTo expected: Data) throws {
     precondition(actual == expected)
 }
 let formats: [PropertyListSerialization.PropertyListFormat] = [.xml, .binary]
-for format in formats {
-    let data = try PropertyListSerialization.data(fromPropertyList: record, format: format, options: 0)
-    let saved = try PairingFileStore.save(data, in: directory)
-    precondition(saved == destination)
-    try assertContents(saved, equalTo: data)
+let remoteRecord: [String: Any] = [
+    "identifier": "test-remote-host", "public_key": Data(repeating: 1, count: 32),
+    "private_key": Data(repeating: 2, count: 32), "alt_irk": Data(repeating: 3, count: 16)
+]
+// Protocol credentials and future/exporter-specific fields belong to Airlift's parser.
+let records: [[String: Any]] = [record, remoteRecord, ["exporter-specific-key": "preserved"]]
+for pairingRecord in records {
+    for format in formats {
+        let data = try PropertyListSerialization.data(fromPropertyList: pairingRecord, format: format, options: 0)
+        let saved = try PairingFileStore.save(data, in: directory)
+        precondition(saved == destination)
+        try assertContents(saved, equalTo: data)
+    }
 }
 let savedData = try Data(contentsOf: destination)
 func rejects(_ data: Data) throws {
     do {
         _ = try PairingFileStore.save(data, in: directory)
-        fatalError("Accepted invalid pairing data")
-    } catch PairingFileStore.ImportError.invalidPairingFile {
+        fatalError("Accepted an unreadable or empty plist")
+    } catch is PairingFileStore.ImportError {
         try assertContents(destination, equalTo: savedData)
     }
 }
 try rejects(Data())
 try rejects(Data("not a plist".utf8))
-let unrelatedObjects: [Any] = [[String: String](), ["unrelated": "plist"], ["array"]]
+let unrelatedObjects: [Any] = [[String: String](), ["array"]]
 for object in unrelatedObjects {
     try rejects(PropertyListSerialization.data(fromPropertyList: object, format: .xml, options: 0))
-}
-for key in record.keys where key != "WiFiMACAddress" {
-    var invalid = record
-    invalid.removeValue(forKey: key)
-    try rejects(PropertyListSerialization.data(fromPropertyList: invalid, format: .binary, options: 0))
-    if record[key] is String {
-        invalid[key] = ""
-    } else {
-        invalid[key] = Data()
-    }
-    try rejects(PropertyListSerialization.data(fromPropertyList: invalid, format: .xml, options: 0))
-    invalid[key] = 42
-    try rejects(PropertyListSerialization.data(fromPropertyList: invalid, format: .xml, options: 0))
 }
 let blockedDirectory = directory.appendingPathComponent("not-a-directory")
 try Data("block".utf8).write(to: blockedDirectory)
@@ -67,7 +62,7 @@ do {
 } catch {
     try assertContents(destination, equalTo: savedData)
 }
-print("PASS: XML/binary import, exact persistence, invalid records preserve saved pairing, storage errors propagate")
+print("PASS: XML/binary Lockdown and Remote Pairing import, exact persistence, no credential schema gate, unreadable/empty plists preserve saved data, storage errors propagate")
 ''', encoding="utf-8")
     executable = temporary / "pairing-import-tests"
     subprocess.run([

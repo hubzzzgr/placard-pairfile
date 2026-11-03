@@ -2,20 +2,26 @@ import Foundation
 
 enum PairingFileStore {
     enum ImportError: LocalizedError {
-        case invalidPairingFile
+        case emptyFile
+        case invalidPropertyList
 
         var errorDescription: String? {
-            "This is not a valid pairing file. Choose a .plist pairing file created for this iPhone."
+            switch self {
+            case .emptyFile:
+                return "The selected .plist file is empty."
+            case .invalidPropertyList:
+                return "Placard could not read this .plist file. Choose an XML or binary property-list file containing a dictionary."
+            }
         }
     }
 
-    /// Preserve XML/binary pairing records exactly; never replace a saved record with invalid data.
+    /// Preserve the original record for Airlift's Lockdown/Remote Pairing parsers.
+    /// Import checks only the plist container; Airlift validates credentials when connecting.
     static func save(_ data: Data, in directory: URL) throws -> URL {
+        guard !data.isEmpty else { throw ImportError.emptyFile }
         guard let record = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
-              ["HostID", "SystemBUID"].allSatisfy({ !(record[$0] as? String ?? "").isEmpty }),
-              ["DeviceCertificate", "HostCertificate", "HostPrivateKey", "RootCertificate", "RootPrivateKey"]
-                .allSatisfy({ !(record[$0] as? Data ?? Data()).isEmpty }) else {
-            throw ImportError.invalidPairingFile
+              !record.isEmpty else {
+            throw ImportError.invalidPropertyList
         }
 
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

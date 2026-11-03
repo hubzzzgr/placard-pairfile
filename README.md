@@ -15,7 +15,7 @@ Placard is an iOS app for browsing, creating, installing, and managing custom Po
 - View and remove installed custom and featured wallpapers
 - Refresh SpringBoard after wallpaper changes with NeoSpring
 - English and Simplified Chinese localization
-- Import an existing `.plist` pairing record from the **Pair this iPhone** setup screen
+- Import an existing Lockdown or Remote Pairing `.plist` record from the **Pair this iPhone** setup screen
 
 ## Preview
 
